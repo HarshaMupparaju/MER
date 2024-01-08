@@ -33,14 +33,14 @@ def show_video(video, emotion):
 
 
 class CASME3Dataset(Dataset):
-    def __init__(self, data_root, MAE_annotations_path, ME_annotations_path, transform=None, sequence_length=16):
+    def __init__(self, data_root, MAE_data, ME_data, transform=None, sequence_length=16):
         self.data_root = data_root
         self.transform = transform
         self.sequence_length = sequence_length
 
         #Load annotations
-        self.annotations_macro = pd.read_excel(MAE_annotations_path, sheet_name=None)['Sheet1']
-        self.annotations_micro = pd.read_excel(ME_annotations_path, sheet_name='label')
+        self.annotations_macro = MAE_data
+        self.annotations_micro = ME_data
         #TODO:Figure out a way to merge both annotations
         self.annotations = self.annotations_micro
 
@@ -79,7 +79,7 @@ class CASME3Dataset(Dataset):
         emotion = self.label_mapping[emotion]
 
 
-        print(f'{subject} {sequence} {onset_frame} {apex_frame} {offset_frame} {emotion}')
+        # print(f'{subject} {sequence} {onset_frame} {apex_frame} {offset_frame} {emotion}')
 
         #Picking 13 frames randomly 
         video_frames = []
@@ -168,21 +168,46 @@ data_root = Path('/media/harshamupparaju/Expansion/Harsha/Databases/CASME3/part_
 MAE_annotations_path = Path('/media/harshamupparaju/Expansion/Harsha/Databases/CASME3/part_A/annotation/cas(me)3_part_A_MaE_label_JpgIndex_v2_emotion.xlsx')
 ME_annotations_path = Path('/media/harshamupparaju/Expansion/Harsha/Databases/CASME3/part_A/annotation/cas(me)3_part_A_ME_label_JpgIndex_v2.xlsx')
 
+
+annotations_macro = pd.read_excel(MAE_annotations_path, sheet_name=None)['Sheet1']
+annotations_micro = pd.read_excel(ME_annotations_path, sheet_name='label')
+
+subject_numbers_macro = annotations_macro['sub'].unique()
+subject_numbers_micro = annotations_micro['Subject'].unique()
+
+additional_subjects = [subject for subject in subject_numbers_macro if subject not in subject_numbers_micro]
+
+subject_numbers_macro = [subject for subject in subject_numbers_macro if subject not in additional_subjects]
+
+train_subjects = random.sample(list(subject_numbers_macro), int(0.8*len(subject_numbers_macro)))
+test_subjects = [subject for subject in subject_numbers_macro if subject not in train_subjects]
+
+
+
+train_data_macro = annotations_macro[annotations_macro['sub'].isin(train_subjects)]
+test_data_macro = annotations_macro[annotations_macro['sub'].isin(test_subjects)]
+
+train_data_micro = annotations_micro[annotations_micro['Subject'].isin(train_subjects)]
+test_data_micro = annotations_micro[annotations_micro['Subject'].isin(test_subjects)]
+
 data_transforms = transforms.Compose([
     models.video.MViT_V2_S_Weights.KINETICS400_V1.transforms()
 ])
 
 #Initialize the dataset
-facial_expression_dataset = CASME3Dataset(data_root, MAE_annotations_path, ME_annotations_path, transform=data_transforms)
+train_dataset = CASME3Dataset(data_root, train_data_macro, train_data_micro, transform=data_transforms)
+test_dataset = CASME3Dataset(data_root, test_data_macro, test_data_micro, transform=data_transforms)
 
-print(len(facial_expression_dataset))
-print(1/0)
 
-train_size = int(0.8 * len(facial_expression_dataset))
-test_size = len(facial_expression_dataset) - train_size
-train_dataset, test_dataset = torch.utils.data.random_split(facial_expression_dataset, [train_size, test_size])
+# train_size = int(0.8 * len(facial_expression_dataset))
+# test_size = len(facial_expression_dataset) - train_size
+# train_dataset, test_dataset = torch.utils.data.random_split(facial_expression_dataset, [train_size, test_size])
+# print(train_dataset)
+# print(1/0)
+# dataloader = DataLoader(facial_expression_dataset, batch_size=2  , shuffle=False, num_workers=0)
 
-dataloader = DataLoader(facial_expression_dataset, batch_size=2  , shuffle=False, num_workers=0)
+train_loader = DataLoader(train_dataset, batch_size=8  , shuffle=True, num_workers=8)
+test_loader = DataLoader(test_dataset, batch_size=8  , shuffle=False, num_workers=8)
 
 def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
@@ -198,11 +223,15 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             print('-' * 10)
             
             # Each epoch has a training and validation phase
-            for phase in ['train', 'val']:
+            for phase in ['train', 'test']:
                 if phase == 'train':
                     model.train()
+                    dataloader = train_loader
+                    dataset = train_dataset
                 else:
                     model.eval()
+                    dataloader = test_loader
+                    dataset = test_dataset
 
                 running_loss = 0.0
                 running_corrects = 0
@@ -243,26 +272,26 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 unweighted_f1_score = f1(predictions, targets)
                 unweighted_average_recall = Recall(predictions, targets)
                 # unweighted_f1_score = f1_score(predictions, targets, num_classes=8, average='macro')
-                print(unweighted_f1_score)
+                # print(unweighted_f1_score)
                 if phase == 'train':
                     scheduler.step()
 
-                epoch_loss = running_loss / len(facial_expression_dataset)
-                epoch_acc = running_corrects.double() / len(facial_expression_dataset)
+                epoch_loss = running_loss / len(dataset)
+                epoch_acc = running_corrects.double() / len(dataset)
                 epoch_f1_score = unweighted_f1_score
                 epoch_recall = unweighted_average_recall
                 print(f'{phase} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f} UF1: {epoch_f1_score:.4f} UAR: {epoch_recall:.4f}')
 
                 # deep copy the model
-                if phase == 'val' and epoch_acc > best_acc:
-                    torch.save(model.state_dict(), best_model_params_path)
-                    best_acc = epoch_acc
+                # if phase == 'test' and epoch_acc > best_acc:
+                #     torch.save(model.state_dict(), best_model_params_path)
+                #     best_acc = epoch_acc
 
-            print()
+                # print()
         
         time_elapsed = time.time() - since
         print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
-        print(f'Best val Acc: {best_acc:4f}')
+        # print(f'Best val Acc: {best_acc:4f}')
 
         # load best model weights
         model.load_state_dict(torch.load(best_model_params_path))
@@ -271,8 +300,18 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
 #Load model
 model = models.video.mvit_v2_s(weights='DEFAULT')
 
+
+
+
+
+
 for param in model.parameters():
     param.requires_grad = False
+
+#Unfreeze last 3 blocks
+# for i in range(13,16):
+#     for param in model.blocks[i].parameters():
+#         param.requires_grad = True
 
 for param in model.head.parameters():
     param.requires_grad = True
@@ -285,12 +324,15 @@ model = model.to(device)
 criterion = nn.CrossEntropyLoss()
 
 # Observe that all parameters are being optimized
-optimizer = optim.SGD(model.head.parameters(), lr=1e-3, momentum=0.9)
+optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.9, weight_decay=0.001)
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-model = train_model(model, criterion, optimizer, exp_scheduler, num_epochs=1)
+model = train_model(model, criterion, optimizer, exp_scheduler, num_epochs=100)
+
+#Testin model
+# train_model(model, criterion, optimizer, exp_scheduler, num_epochs=40)
 
 
 
