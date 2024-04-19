@@ -49,7 +49,7 @@ def is_between(point1, point2, point3, extra_point):
 
 def face_aligner(img, depth_img):
     detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor('models/shape_predictor_5_face_landmarks.dat')
+    predictor = dlib.shape_predictor('../models/shape_predictor_5_face_landmarks.dat')
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     rects = detector(gray, 0)
@@ -60,6 +60,8 @@ def face_aligner(img, depth_img):
             w = rect.right()
             h = rect.bottom()
             shape = predictor(gray, rect)
+    else:
+        return img, depth_img
     
     shape = shape_to_normal(shape)
     nose, left_eye, right_eye = get_eyes_nose_dlib(shape)
@@ -86,7 +88,9 @@ def face_aligner(img, depth_img):
     img = Image.fromarray(img)
     img = np.array(img.rotate(angle))
 
-    depth_img = Image.fromarray(depth_img.squeeze(), 'L')
+
+    depth_img = Image.fromarray(depth_img)
+
     depth_img = np.array(depth_img.rotate(angle))
     depth_img = depth_img.reshape(depth_img.shape[0], depth_img.shape[1], 1)
 

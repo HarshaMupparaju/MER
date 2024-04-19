@@ -7,10 +7,11 @@ def face_cropper(img, depth_img):
     # Convert into grayscale 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
     # Load the cascade 
-    face_cascade = cv2.CascadeClassifier('models/haarcascade_frontalface_alt2.xml') 
+    face_cascade = cv2.CascadeClassifier('../models/haarcascade_frontalface_alt2.xml') 
     # Detect faces 
     faces = face_cascade.detectMultiScale(gray, 1.1, 4) 
-
+    if(len(faces) == 0):
+        return img, depth_img
     for (x, y, w, h) in faces: 
         # h = 370
         # w = 370
