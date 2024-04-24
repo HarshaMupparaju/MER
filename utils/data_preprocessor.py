@@ -59,21 +59,32 @@ def get_frames(rgb_dirpath : Path, depth_dirpath : Path, onset : int, apex : int
     return frames, onset, apex, offset
 
 def pad_frames(rgb_frames : list, depth_frames : list):
-    max_h = max([frame.shape[0] for frame in rgb_frames])
-    max_w = max([frame.shape[1] for frame in rgb_frames])
+    # max_h = max([frame.shape[0] for frame in rgb_frames])
+    # max_w = max([frame.shape[1] for frame in rgb_frames])
 
-    rgb_frames_padded = []
-    depth_frames_padded = []
+    min_h = min([frame.shape[0] for frame in rgb_frames])
+    min_w = min([frame.shape[1] for frame in rgb_frames])
+
+    # rgb_frames_padded = []
+    # depth_frames_padded = []
+    rgb_frames_cropped = []
+    depth_frames_cropped = []
 
     for i in range(len(rgb_frames)):
         h, w = rgb_frames[i].shape[:2]
-        pad_h = max_h - h
-        pad_w = max_w - w
+        # pad_h = max_h - h
+        # pad_w = max_w - w
+        crop_h = h - min_h
+        crop_w = w - min_w
 
-        rgb_frames_padded.append(np.pad(rgb_frames[i], ((0, pad_h), (0, pad_w), (0, 0)), 'constant', constant_values=0))
-        depth_frames_padded.append(np.pad(depth_frames[i], ((0, pad_h), (0, pad_w)), 'constant', constant_values=0))
+        rgb_frames_cropped.append(rgb_frames[i][crop_h//2:crop_h//2 + min_h, crop_w//2:crop_w//2 + min_w])
+        depth_frames_cropped.append(depth_frames[i][crop_h//2:crop_h//2 + min_h, crop_w//2:crop_w//2 + min_w])
 
-    return np.array(rgb_frames_padded), np.array(depth_frames_padded)
+        # rgb_frames_padded.append(np.pad(rgb_frames[i], ((0, pad_h), (0, pad_w), (0, 0)), 'constant', constant_values=0))
+        # depth_frames_padded.append(np.pad(depth_frames[i], ((0, pad_h), (0, pad_w)), 'constant', constant_values=0))
+
+    # return np.array(rgb_frames_padded), np.array(depth_frames_padded)
+    return np.array(rgb_frames_cropped), np.array(depth_frames_cropped)
 
 database_dirpath = Path('../../../../../media/harshamupparaju/Expansion/Harsha/Databases/CASME3/part_A')
 

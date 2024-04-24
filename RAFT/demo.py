@@ -53,7 +53,6 @@ def demo(args):
         
         images = sorted(images)
         for imfile1, imfile2 in zip(images[:-1], images[1:]):
-            print(imfile1, imfile2)
             
             image1 = load_image(imfile1)
             image2 = load_image(imfile2)
@@ -62,6 +61,13 @@ def demo(args):
             image1, image2 = padder.pad(image1, image2)
 
             flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
+            print(flow_up.shape)
+            # print(flow_up.shape[0] * flow_up.shape[1] )
+            # threshold = 0.5
+            # valid_flow = flow_up[0, 2, :, :] > threshold
+
+            # print(flow_up.shape)
+            # print(1/0)
             viz(image1, flow_up)
 
 
@@ -69,6 +75,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help="restore checkpoint")
     parser.add_argument('--path', help="dataset for evaluation")
+    parser.add_argument('--output', help="path to save output")
     parser.add_argument('--small', action='store_true', help='use small model')
     parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
     parser.add_argument('--alternate_corr', action='store_true', help='use efficent correlation implementation')
