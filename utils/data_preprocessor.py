@@ -126,26 +126,27 @@ for index, row in tqdm(me_annotation.iterrows(), total=me_annotation.shape[0]):
 
 
 
-    #Face Alignment and Cropping of images and depth maps
-    rgb_frames_final =[]
-    depth_frames_final = []
-    h, w = rgb_frames[0].shape[:2]
+    # #Face Alignment and Cropping of images and depth maps
+    # rgb_frames_final =[]
+    # depth_frames_final = []
+    # h, w = rgb_frames[0].shape[:2]
 
-    for i in range(len(rgb_frames)):
-        frame_aligned, depth_frame_aligned = face_aligner(rgb_frames[i], depth_frames[i] )
-        temp1, temp2 = face_cropper(frame_aligned, depth_frame_aligned)
+    # for i in range(len(rgb_frames)):
+    #     frame_aligned, depth_frame_aligned = face_aligner(rgb_frames[i], depth_frames[i] )
+    #     temp1, temp2 = face_cropper(frame_aligned, depth_frame_aligned)
 
-        temp2 = temp2.squeeze()
-        rgb_frames_final.append(temp1)
-        depth_frames_final.append(temp2)
-        # img = Image.fromarray(temp2)
-        # img.show()
-        # print(1/0)
+    #     temp2 = temp2.squeeze()
+    #     rgb_frames_final.append(temp1)
+    #     depth_frames_final.append(temp2)
+    #     # img = Image.fromarray(temp2)
+    #     # img.show()
+    #     # print(1/0)
 
 
 
-    rgb_frames_final, depth_frames_final = pad_frames(rgb_frames_final, depth_frames_final)
+    # rgb_frames_final, depth_frames_final = pad_frames(rgb_frames_final, depth_frames_final)
 
+    rgb_frames_final, depth_frames_final = rgb_frames, depth_frames
 
     #Save the frames
     output_dirname = f'{subject}_{filename}_{onset}_{offset}'
