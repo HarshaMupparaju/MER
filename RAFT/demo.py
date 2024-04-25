@@ -12,7 +12,7 @@ from PIL import Image
 from raft import RAFT
 from utils import flow_viz
 from utils.utils import InputPadder
-
+import matplotlib.pyplot as plt
 
 
 DEVICE = 'cuda'
@@ -59,16 +59,28 @@ def demo(args):
 
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
-
             flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
-            print(flow_up.shape)
-            # print(flow_up.shape[0] * flow_up.shape[1] )
-            # threshold = 0.5
-            # valid_flow = flow_up[0, 2, :, :] > threshold
+            # threshold = 0.3
 
-            # print(flow_up.shape)
-            # print(1/0)
-            viz(image1, flow_up)
+            flow_x = flow_up[0, 0].cpu().numpy()
+            flow_y = flow_up[0, 1].cpu().numpy()
+            flow_magnitude = np.sqrt(flow_x**2 + flow_y**2)
+
+            # Calculate threshold based on 95th percentile
+            threshold = np.percentile(flow_magnitude, 95)
+
+            mask = flow_magnitude > threshold
+            mask = mask.astype(np.uint8) * 255
+            
+
+            # Impose mask on the image and show it
+            image1 = image1[0].permute(1,2,0).cpu().numpy().astype(np.uint8)
+            plt.imshow(image1)
+            plt.imshow(mask, cmap='gray', alpha=0.5)
+            plt.show()
+
+
+            # viz(image1, flow_up)
 
 
 if __name__ == '__main__':
