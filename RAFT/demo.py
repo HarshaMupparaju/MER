@@ -72,12 +72,15 @@ def demo(args):
             mask = flow_magnitude > threshold
             mask = mask.astype(np.uint8) * 255
             
+            # Save mask
+            mask = Image.fromarray(mask)
+            mask.save(args.output)
 
             # Impose mask on the image and show it
-            image1 = image1[0].permute(1,2,0).cpu().numpy().astype(np.uint8)
-            plt.imshow(image1)
-            plt.imshow(mask, cmap='gray', alpha=0.5)
-            plt.show()
+            # image1 = image1[0].permute(1,2,0).cpu().numpy().astype(np.uint8)
+            # plt.imshow(image1)
+            # plt.imshow(mask, cmap='gray', alpha=0.5)
+            # plt.show()
 
 
             # viz(image1, flow_up)
