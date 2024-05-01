@@ -60,7 +60,7 @@ def demo(args):
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
             flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
-            # threshold = 0.3
+            # threshold = 2
 
             flow_x = flow_up[0, 0].cpu().numpy()
             flow_y = flow_up[0, 1].cpu().numpy()
@@ -81,7 +81,6 @@ def demo(args):
             # plt.imshow(image1)
             # plt.imshow(mask, cmap='gray', alpha=0.5)
             # plt.show()
-
 
             # viz(image1, flow_up)
 
