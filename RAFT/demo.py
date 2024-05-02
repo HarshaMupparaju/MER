@@ -56,28 +56,33 @@ def demo(args):
             
             image1 = load_image(imfile1)
             image2 = load_image(imfile2)
+            original_shape = image1.shape
 
             padder = InputPadder(image1.shape)
             image1, image2 = padder.pad(image1, image2)
             flow_low, flow_up = model(image1, image2, iters=20, test_mode=True)
             # threshold = 2
+            flow_up = padder.unpad(flow_up)
+            flow_up = flow_up[0].permute(1,2,0).cpu().numpy()
 
-            flow_x = flow_up[0, 0].cpu().numpy()
-            flow_y = flow_up[0, 1].cpu().numpy()
+            flow_x = flow_up[:,:,0]
+            flow_y = flow_up[:,:,1]
             flow_magnitude = np.sqrt(flow_x**2 + flow_y**2)
 
             # Calculate threshold based on 95th percentile
             threshold = np.percentile(flow_magnitude, 95)
-
+            # print(threshold)
+            # print(1/0)
             mask = flow_magnitude > threshold
             mask = mask.astype(np.uint8) * 255
-            
+            mask.resize(original_shape[2], original_shape[3])
             # Save mask
             mask = Image.fromarray(mask)
             mask.save(args.output)
 
             # Impose mask on the image and show it
-            # image1 = image1[0].permute(1,2,0).cpu().numpy().astype(np.uint8)
+            image1 = image1[0].permute(1,2,0).cpu().numpy().astype(np.uint8)
+            
             # plt.imshow(image1)
             # plt.imshow(mask, cmap='gray', alpha=0.5)
             # plt.show()

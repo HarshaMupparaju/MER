@@ -41,6 +41,8 @@ def show_video(video, emotion):
 class CASME3Dataset(Dataset):
     def __init__(self, data_root, MAE_data, ME_data, expression_type, use_optical_flow_masks, transform=None, num_emotions=7, sequence_length=16):
         self.data_root = data_root
+        self.data_dirpath = data_root / 'processed_data'
+        self.optical_masks_dirpath = data_root / 'flow_masks'
         self.transform = transform
         self.sequence_length = sequence_length
         self.expression_type = expression_type
@@ -87,7 +89,7 @@ class CASME3Dataset(Dataset):
 
         print(f'{subject} {sequence} {onset_frame} {apex_frame} {offset_frame} {emotion}')
 
-        datapoint_dirpath = self.data_root / f'{subject}_{sequence}_{onset_frame}_{offset_frame}'
+        datapoint_dirpath = self.data_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}'
         rgb_dirpath = datapoint_dirpath / 'rgb'
         depth_dirpath = datapoint_dirpath / 'depth'
 
@@ -100,55 +102,43 @@ class CASME3Dataset(Dataset):
 
         rgb_video = []
         depth_video = []
+        masks_video = []
 
         for frame in rgb_frames:
             frame_num = int(frame.split('_')[-1])
             rgb_frame = np.array(Image.open(rgb_dirpath / f'{frame}.jpg'))
             depth_frame = np.load(depth_dirpath / f'{frame}.npy')
-
+            onset_apex_optical_flow_mask = None
+            apex_offset_optical_flow_mask = None
             if(self.use_optical_flow_masks):
-                onset_apex_optical_flow_mask = np.array(Image.open(self.data_root / f'flow_masks/{subject}_{sequence}_{onset_frame}_{offset_frame}/onset_apex.jpg')) / 255
-                apex_offset_optical_flow_mask = np.array(Image.open(self.data_root / f'flow_masks/{subject}_{sequence}_{onset_frame}_{offset_frame}/apex_offset.jpg')) / 255
-                #Convert 1s and 0s to True and False
-                onset_apex_optical_flow_mask = onset_apex_optical_flow_mask.astype(bool)
-                apex_offset_optical_flow_mask = apex_offset_optical_flow_mask.astype(bool)
+                if(self.optical_masks_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}/onset_apex.jpg').exists() == True:
+                    onset_apex_optical_flow_mask = np.array(Image.open(self.optical_masks_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}/onset_apex.jpg'))
+                if(self.optical_masks_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}/apex_offset.jpg').exists() == True:
+                    apex_offset_optical_flow_mask = np.array(Image.open(self.optical_masks_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}/apex_offset.jpg'))
 
-                if(frame_num <= apex_frame):
-                    rgb_frame = np.logical_and(rgb_frame, onset_apex_optical_flow_mask)
-                    depth_frame = np.logical_and(depth_frame, onset_apex_optical_flow_mask)
+                if(onset_apex_optical_flow_mask is None and apex_offset_optical_flow_mask is None):
+                    mask = np.ones_(rgb_frame.shape[:2]) * 255
+                elif(onset_apex_optical_flow_mask is None):
+                    mask = apex_offset_optical_flow_mask
+                elif(apex_offset_optical_flow_mask is None):
+                    mask = onset_apex_optical_flow_mask
                 else:
-                    rgb_frame = np.logical_and(rgb_frame, apex_offset_optical_flow_mask)
-                    depth_frame = np.logical_and(depth_frame, apex_offset_optical_flow_mask)
+                    if(frame_num <= apex_frame):
+                        mask = onset_apex_optical_flow_mask
+                    else:
+                        mask = apex_offset_optical_flow_mask
         
-                plt.imshow(rgb_frame)
-                plt.show()
-                print(1/0)                                                                                                                                                                                                
+                # plt.imshow(rgb_frame)
+                # plt.show()                                                                                                                                                                                             
             rgb_video.append(rgb_frame)
             depth_video.append(depth_frame)
+            masks_video.append(mask)
         
         rgb_video = np.array(rgb_video)
+        depth_video = np.expand_dims(np.array(depth_video), axis=-1)
+        masks_video = np.expand_dims(np.array(masks_video), axis=-1)
 
-
-
-            
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-
-        rgbd_video = np.concatenate((rgb_video, depth_video), axis=-1)
-   
+        rgbd_video = np.concatenate((rgb_video, depth_video, masks_video), axis=-1)
 
 
         torch_rgbd_video = torch.from_numpy(rgbd_video).float()
@@ -161,211 +151,7 @@ class CASME3Dataset(Dataset):
 
         return torch_rgbd_video, y_label
 
-    # def filter_sequences(self):
-    #     self.annotations = self.annotations[
-    #         (self.annotations['Offset'] - self.annotations['Onset'] + 1) >= 16]
 
-    #     if (self.expression_type == 'micro'):
-    #         # self.annotations.remove(self.annotations[self.annotations['Subject'] == 'spNO.171'] & self.annotations[self.annotations['Filename'] == 'e'])
-    #         # self.annotations.drop(self.annotations[self.annotations['Subject'] == 'spNO.171'] & self.annotations[self.annotations['Filename'] == 'e'], inplace=True)
-    #         a = self.annotations['Subject'] == 'spNO.171'
-    #         b = self.annotations['Filename'] == 'e'
-    #         c = self.annotations['Onset'] == 2403
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.171'
-    #         b = self.annotations['Filename'] == 'h'
-    #         c = self.annotations['Onset'] == 1340
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.208'
-    #         b = self.annotations['Filename'] == 'c'
-    #         c = self.annotations['Onset'] == 2334
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.215'
-    #         b = self.annotations['Filename'] == 'j'
-    #         c = self.annotations['Onset'] == 463
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.216'
-    #         b = self.annotations['Filename'] == 'e'
-    #         c = self.annotations['Onset'] == 0
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # Depth Missing Frame cases
-
-    #         # a = self.annotations['Subject'] == 'spNO.214'
-    #         # b = self.annotations['Filename'] == 'c'
-    #         # c = self.annotations['Offset'] == 3460     #Missing frame case
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #     if (self.expression_type == 'macro'):
-    #         # self.annotations.remove(self.annotations[self.annotations['Subject'] == 'spNO.171'] & self.annotations[self.annotations['Filename'] == 'e'])
-    #         # self.annotations.drop(self.annotations[self.annotations['Subject'] == 'spNO.171'] & self.annotations[self.annotations['Filename'] == 'e'], inplace=True)
-    #         a = self.annotations['Subject'] == 'spNO.150'
-    #         b = self.annotations['Filename'] == 'h'
-    #         c = self.annotations['Onset'] == 2239
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.151'
-    #         b = self.annotations['Filename'] == 'd'
-    #         c = self.annotations['Onset'] == 2069
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.148'
-    #         b = self.annotations['Filename'] == 'j'
-    #         c = self.annotations['Onset'] == 868
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.148'
-    #         b = self.annotations['Filename'] == 'j'
-    #         c = self.annotations['Onset'] == 945
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.148'
-    #         b = self.annotations['Filename'] == 'j'
-    #         c = self.annotations['Apex'] == 1111
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.167'
-    #         b = self.annotations['Filename'] == 'b'
-    #         c = self.annotations['Apex'] == 226
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.171'
-    #         b = self.annotations['Filename'] == 'f'
-    #         c = self.annotations['Onset'] == 1404
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.186'
-    #         b = self.annotations['Filename'] == 'a'
-    #         c = self.annotations['Apex'] == 53
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.186'
-    #         b = self.annotations['Filename'] == 'a'
-    #         c = self.annotations['Onset'] == 246
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.186'
-    #         b = self.annotations['Filename'] == 'k'
-    #         c = self.annotations['Apex'] == 340
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.203'
-    #         b = self.annotations['Filename'] == 'm'
-    #         c = self.annotations['Apex'] == 436
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.207'
-    #         b = self.annotations['Filename'] == 'j'
-    #         c = self.annotations['Apex'] == 702
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.210'
-    #         b = self.annotations['Filename'] == 'd'
-    #         c = self.annotations['Apex'] == 460
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.210'
-    #         b = self.annotations['Filename'] == 'e'
-    #         c = self.annotations['Apex'] == 1672
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.210'
-    #         b = self.annotations['Filename'] == 'h'
-    #         c = self.annotations['Onset'] == 2849
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.215'
-    #         b = self.annotations['Filename'] == 'd'
-    #         c = self.annotations['Apex'] == 3734
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.215'
-    #         b = self.annotations['Filename'] == 'g'
-    #         c = self.annotations['Apex'] == 2096
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         a = self.annotations['Subject'] == 'spNO.215'
-    #         b = self.annotations['Filename'] == 'l'
-    #         c = self.annotations['Onset'] == 0  # Missing frame case
-
-    #         self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # Depth Missing Frame cases
-
-    #         # a = self.annotations['Subject'] == 'spNO.11'
-    #         # b = self.annotations['Filename'] == 'd'
-    #         # c = self.annotations['Offset'] == 3652
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.207'
-    #         # b = self.annotations['Filename'] == 'i'
-    #         # c = self.annotations['Offset'] == 4328
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.146'
-    #         # b = self.annotations['Filename'] == 'e'
-    #         # c = self.annotations['Offset'] == 3084
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.157'
-    #         # b = self.annotations['Filename'] == 'a'
-    #         # c = self.annotations['Offset'] == 1024
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.159'
-    #         # b = self.annotations['Filename'] == 'a'
-    #         # c = self.annotations['Offset'] == 1025
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.160'
-    #         # b = self.annotations['Filename'] == 'a'
-    #         # c = self.annotations['Offset'] == 1021
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.160'
-    #         # b = self.annotations['Filename'] == 'c'
-    #         # c = self.annotations['Offset'] == 3472
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
-
-    #         # a = self.annotations['Subject'] == 'spNO.160'
-    #         # b = self.annotations['Filename'] == 'f'
-    #         # c = self.annotations['Offset'] == 2316
-
-    #         # self.annotations.drop(self.annotations[a & b & c].index, inplace=True)
 
 
 def train_one_epoch(model, criterion, optimizer, train_loader, train_dataset, writer, device, epoch_number):
@@ -466,7 +252,8 @@ def train_model(model, criterion, optimizer, train_loader, train_dataset, test_l
 
     end = time.time()
     print(f'Training complete in {(end - since) / 60} minutes')
-    torch.save(model.state_dict(), f'train/train{train_num:04}/train_model_params.pt')
+    # torch.save(model.state_dict(), f'train/train{train_num:04}/train_model_params.pt')
+    return model
 
 
 def common_subjects_macro_micro(annotations_macro, annotations_micro):
@@ -499,7 +286,7 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
     writer = SummaryWriter(f'train/train{train_num:04}')
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    data_root = Path('../../CASME3/processed_data/')
+    data_root = Path('../../CASME3/')
     MAE_annotations_path = Path('../../CASME3/processed_annotations/me_annotations.csv')
     ME_annotations_path = Path('../../CASME3/processed_annotations/me_annotations.csv')
 
@@ -517,6 +304,9 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
     a = models.video.MViT_V2_S_Weights.KINETICS400_V1.transforms()
     a.mean.append(0.45)
     a.std.append(0.225)
+    if(use_optical_flow_masks):
+        a.mean.append(0.5)
+        a.std.append(0.5)
 
 
     data_transforms = transforms.Compose([
@@ -561,6 +351,8 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
         param.requires_grad = True
 
     model.conv_proj = nn.Conv3d(4, 96, kernel_size=(3, 7, 7), stride=(2, 4, 4), padding=(1, 3, 3))
+    if(use_optical_flow_masks):
+        model.conv_proj = nn.Conv3d(5, 96, kernel_size=(3, 7, 7), stride=(2, 4, 4), padding=(1, 3, 3))
 
     num_features = model.head[1].in_features
     model.head[1] = torch.nn.Linear(num_features, 7)
@@ -584,17 +376,17 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
 
     # torch.save(model, f'train/train{train_num:04}/train_model.pt')
     torch.save({
-        'model_state_dict': model.state_dict(),
+        
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': criterion,
-    }, f'train/train{train_num:04}/train_model.pt')
+    }, f'train/train{train_num:04}/model.pt')
     writer.flush()
     writer.close()
 
 
 if __name__ == '__main__':
-    train_num = 999
-    epochs = 1
+    train_num = 9
+    epochs = 100
     num_emotions = 7
     batch_size = 1
     use_optical_flow_masks = True

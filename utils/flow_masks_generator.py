@@ -9,7 +9,7 @@ from tqdm import tqdm
 root_dirpath = Path('../../../CASME3/')
 database_dirpath = root_dirpath / 'processed_data'
 flow_masks_dirpath = root_dirpath / 'flow_masks'
-flow_masks_dirpath.mkdir(parents=True, exist_ok=False)
+flow_masks_dirpath.mkdir(parents=True, exist_ok=True)
 annotations_path = Path('../../../CASME3/processed_annotations/me_annotations.csv')
 
 tmp_dirpath = Path('/mnt/2tb-hdd/Harsha/MER/tmp')
@@ -30,7 +30,7 @@ for index, row in tqdm(annotations.iterrows(), total=annotations.shape[0]):
     rgb_dirpath = datapoint_dirpath / 'rgb'
 
     datapoint_flow_masks_dirpath = flow_masks_dirpath / f'{subject}_{filename}_{onset}_{offset}'
-    datapoint_flow_masks_dirpath.mkdir(parents=True, exist_ok=False)
+    datapoint_flow_masks_dirpath.mkdir(parents=True, exist_ok=True)
 
     onset_apex_flow_mask_filepath = datapoint_flow_masks_dirpath / 'onset_apex.jpg'
     apex_offset_flow_mask_filepath = datapoint_flow_masks_dirpath / 'apex_offset.jpg'
