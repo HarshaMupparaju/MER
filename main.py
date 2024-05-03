@@ -73,6 +73,19 @@ class CASME3Dataset(Dataset):
                 'sadness': 5,
 
             }
+        elif(num_emotions == 4):
+            self.label_mapping = {
+                'disgust': 1,
+                'surprise': 2,
+                'happy': 0,
+                'fear': 1,
+                'anger': 1,
+                'sad': 1,
+                'others': 3,
+                'Others': 3,
+                'happiness': 0,
+                'sadness': 1,
+            }
 
     def __len__(self):
         return len(self.annotations)
@@ -87,7 +100,7 @@ class CASME3Dataset(Dataset):
 
         emotion = self.label_mapping[emotion]
 
-        print(f'{subject} {sequence} {onset_frame} {apex_frame} {offset_frame} {emotion}')
+        # print(f'{subject} {sequence} {onset_frame} {apex_frame} {offset_frame} {emotion}')
 
         datapoint_dirpath = self.data_dirpath / f'{subject}_{sequence}_{onset_frame}_{offset_frame}'
         rgb_dirpath = datapoint_dirpath / 'rgb'
@@ -355,7 +368,7 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
         model.conv_proj = nn.Conv3d(5, 96, kernel_size=(3, 7, 7), stride=(2, 4, 4), padding=(1, 3, 3))
 
     num_features = model.head[1].in_features
-    model.head[1] = torch.nn.Linear(num_features, 7)
+    model.head[1] = torch.nn.Linear(num_features, num_emotions)
 
     model = model.to(device)
 
@@ -387,7 +400,7 @@ def main(train_num, epochs, num_emotions, batch_size, use_optical_flow_masks):
 if __name__ == '__main__':
     train_num = 9
     epochs = 100
-    num_emotions = 7
-    batch_size = 1
+    num_emotions = 4
+    batch_size = 4
     use_optical_flow_masks = True
     main(train_num=train_num, epochs=epochs, num_emotions=num_emotions, batch_size=batch_size, use_optical_flow_masks=use_optical_flow_masks)
